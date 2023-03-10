@@ -1,5 +1,5 @@
 /+
-+            Copyright 2023 – 2023 Aya Partridge
++            Copyright 2022 – 2023 Aya Partridge
 + Distributed under the Boost Software License, Version 1.0.
 +     (See accompanying file LICENSE_1_0.txt or copy at
 +           http://www.boost.org/LICENSE_1_0.txt)
@@ -35,5 +35,5 @@ static if(__VERSION__ >= 2101L){ //2.101+ supports Import C with #include
 		else return false;
 	}()){
 		alias wchar_t = wchar;
-	}else static assert(0, "`sizeof(wchar_t)` is not known on this platform. Please add it to bindbc/common/config.d, or update your compiler to a version based on dmd 2.101 or higher");
+	}else static assert(0, "`sizeof(wchar_t)` is not known on this platform. Please add it to bindbc/common/types.d, or update your compiler to a version based on dmd 2.101 or higher");
 }
