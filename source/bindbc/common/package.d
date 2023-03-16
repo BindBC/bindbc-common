@@ -7,5 +7,6 @@
 module bindbc.common;
 
 public import
+	bindbc.common.codegen,
 	bindbc.common.types,
 	bindbc.common.versions;
