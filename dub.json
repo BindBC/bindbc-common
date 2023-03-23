@@ -7,7 +7,7 @@
 	
 	"targetType": "staticLibrary",
 	"targetPath": "lib",
-	"targetName": "BindBC_Loader",
+	"targetName": "BindBC_Common",
 	"configurations": [
 		{
 			"name": "noBC",
