@@ -6,6 +6,43 @@
 +/
 module bindbc.common.codegen;
 
+enum mangleofCppDefaultCtor = (string sym) nothrow pure @safe{
+	static if((){
+		version(CppRuntime_Clang)    return true;
+		else version(CppRuntime_Gcc) return true;
+		else return false;
+	}()){
+		string len = "";
+		size_t i = sym.length;
+		while(i > 0){
+			len ~= '0' + (i % 10);
+			i /= 10;
+		}
+		return "_ZN" ~ len ~ sym ~ "C1Ev";
+	}else static if((){
+		version(CppRuntime_Microsoft)        return true;
+		else version(CppRuntime_DigitalMars) return true;
+		else return false;
+	}()){
+		return "??0" ~ sym ~ "@@QAE@XZ";
+	}else static assert(0, "Unknown runtime, not sure what mangling to use. Please check how your compiler mangles C++ struct constructors and add code for it to `bindbc.common.codegen.mangleofCppDefaultCtor`.");
+};
+unittest{
+	static if((){
+		version(CppRuntime_Clang)    return true;
+		else version(CppRuntime_Gcc) return true;
+		else return false;
+	}(){
+		static assert("ImGuiListClipper".mangleofCppDefaultCtor() == "_ZN16ImGuiListClipperC1Ev");
+	}else static if((){
+		version(CppRuntime_Microsoft)        return true;
+		else version(CppRuntime_DigitalMars) return true;
+		else return false;
+	}()){
+		static assert("ImGuiListClipper".mangleofCppDefaultCtor() == "??0ImGuiListClipper@@QAE@XZ");
+	}
+}
+
 enum makeFnBindFns = (bool staticBinding) nothrow pure @safe{
 	string ret = `
 /*regex: function decl => makeFnBinds decl
