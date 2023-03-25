@@ -15,7 +15,7 @@ enum mangleofCppDefaultCtor = (string sym) nothrow pure @safe{
 		string len = "";
 		size_t i = sym.length;
 		while(i > 0){
-			len ~= '0' + (i % 10);
+			len = ('0' + (i % 10)) ~ len;
 			i /= 10;
 		}
 		return "_ZN" ~ len ~ sym ~ "C1Ev";
