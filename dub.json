@@ -1,20 +1,20 @@
 {
 	"name": "bindbc-common",
 	"description": "Code used by various BindBC libraries.",
-	"homepage": "",
 	"authors": ["Aya Partridge"],
-	"license": "Boost",
+	"license": "BSL-1.0",
 	
 	"targetType": "staticLibrary",
 	"targetPath": "lib",
 	"targetName": "BindBC_Common",
+	
 	"configurations": [
 		{
 			"name": "noBC",
 		},
 		{
 			"name": "yesBC",
-			"dflags": ["-betterC"],
+			"buildOptions": ["betterC"],
 		},
 	],
 }

@@ -49,27 +49,48 @@ enum makeFnBindFns = (bool staticBinding) nothrow pure @safe{
 ^[ \t]*([A-Za-z0-9_()*\[\]]+) (\w+) ?\(([A-Za-z0-9_()*, .=\[\]]*)\);
 \t\t[q{$1}, q{$2}, q{$3}],
 */
-enum makeFnBinds = (string[3][] fns) nothrow pure @safe{
+enum makeFnBinds = (string[][] fns) nothrow pure @safe{
 	string makeFnBinds = "";`;
 	if(staticBinding){
 		ret ~= `
 	foreach(fn; fns){
-		makeFnBinds ~= "\n\t"~fn[0]~" "~fn[1]~"("~fn[2]~");";
+		if(fn.length == 3){ //C
+			makeFnBinds ~= "\n\textern(C) ";
+		}else if(fn.length == 4){ //C++ or Objective-C
+			makeFnBinds ~= "\n\textern("~fn[0]~") ";
+			fn = fn[1..$];
+		}else assert(0, "Wrong number of function items");
+		
+		makeFnBinds ~= fn[0]~" "~fn[1]~"("~fn[2]~");";
 	}
 	return [makeFnBinds];`;
 	}else{
 		ret ~= `
 	string[] symbols;
 	foreach(fn; fns){
+		string prefix;
+		if(fn.length == 3){ //C
+			prefix = "\n\textern(C) ";
+		}else if(fn.length == 4){ //C++ or Objective-C
+			prefix = "\n\textern("~fn[0]~") ";
+			fn = fn[1..$];
+		}else assert(0, "Wrong number of function items");
+		
 		if(fn[2].length > 3 && fn[2][$-3..$] == "..."){
-			makeFnBinds ~= "\n\t private "~fn[0]~" function("~fn[2]~") _"~fn[1]~";";
-			makeFnBinds ~= "\n\t alias "~fn[1]~" = _"~fn[1]~";";
+			makeFnBinds ~= prefix~"private "~fn[0]~" function("~fn[2]~") _"~fn[1]~";";
+			makeFnBinds ~= "\n\talias "~fn[1]~" = _"~fn[1]~";";
 		}else{
-			makeFnBinds ~= "\n\tprivate "~fn[0]~" function("~fn[2]~") _"~fn[1]~";";
-			if(fn[0] == "void"){
-				makeFnBinds ~= "\n\t"~fn[0]~" "~fn[1]~"("~fn[2]~"){ _"~fn[1]~"(__traits(parameters)); }";
+			makeFnBinds ~= prefix~"private "~fn[0]~" function("~fn[2]~") _"~fn[1]~";";
+			if(fn[1] == "this"){ //constructor
+				if(fn[2] == ""){ //default constructor
+					makeFnBinds ~= prefix~"pragma(mangle, mangleofCppDefaultCtor(__traits(identifier, typeof(this)))) "~fn[1]~"(int _){ _"~fn[1]~"(); }";
+				}else{
+					makeFnBinds ~= prefix~fn[1]~"("~fn[2]~"){ _"~fn[1]~"(__traits(parameters)); }";
+				}
+			}else if(fn[0] == "void"){
+				makeFnBinds ~= prefix~fn[0]~" "~fn[1]~"("~fn[2]~"){ _"~fn[1]~"(__traits(parameters)); }";
 			}else{
-				makeFnBinds ~= "\n\t"~fn[0]~" "~fn[1]~"("~fn[2]~"){ return _"~fn[1]~"(__traits(parameters)); }";
+				makeFnBinds ~= prefix~fn[0]~" "~fn[1]~"("~fn[2]~"){ return _"~fn[1]~"(__traits(parameters)); }";
 			}
 		}
 		symbols ~= fn[1];
@@ -79,16 +100,16 @@ enum makeFnBinds = (string[3][] fns) nothrow pure @safe{
 	ret ~= `
 };
 
-enum joinFnBinds = (string[][] list) nothrow pure @safe{`;
+enum joinFnBinds = (string[][] list, bool bindMemberFns=false) nothrow pure @safe{`;
 	if(staticBinding){
 		ret ~= `
-	string joined = "extern(C) @nogc nothrow{";
+	string joined = "@nogc nothrow{";
 	foreach(item; list){
 		joined ~= item[0];
 	}`;
 	}else{
 		ret ~= `
-	string joined = "extern(C) @nogc nothrow __gshared{";
+	string joined = "@nogc nothrow __gshared{";
 	string[] symbols;
 	foreach(item; list){
 		joined ~= item[0];
@@ -102,7 +123,14 @@ enum joinFnBinds = (string[][] list) nothrow pure @safe{`;
 		ret ~= `
 	joined ~= "\n\nimport bindbc.loader: SharedLib, bindSymbol;\nvoid bindModuleSymbols(SharedLib lib) @nogc nothrow{";
 	foreach(symbol; symbols){
-		joined ~= "\n\tlib.bindSymbol(cast(void**)&_"~symbol~", \""~symbol~"\");";
+		joined ~= "\n\tlib.bindSymbol(cast(void**)&_"~symbol~", \""~mixin(symbol~".mangleof")~"\");";
+	}
+	if(bindMemberFns){
+		static foreach(member; __traits(allMembers, mixin(__MODULE__))){
+			static if((__traits(getLinkage, mixin(member)) == "C++" || __traits(getLinkage, mixin(member)) == "Objective-C") && (is(mixin(member) == struct) || is(mixin(member) == class) || is(mixin(member) == struct))){
+				mixin(member,".bindModuleSymbols();");
+			}
+		}
 	}
 	joined ~= "\n}";`;
 	}
