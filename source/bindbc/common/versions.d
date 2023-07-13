@@ -14,12 +14,40 @@ struct Version{
 	enum none = Version(int.min, 0, 0);
 	enum bad = Version(-1, 0, 0);
 	
-	int opCmp(Version x) @nogc nothrow pure{
-		if(major != x.major)
+	int opCmp(Version x) nothrow @nogc pure @safe{
+		if(major != x.major){
 			return major - x.major;
-		else if(minor != x.minor)
+		}else if(minor != x.minor){
 			return minor - x.minor;
-		else
+		}else{
 			return patch - x.patch;
+		}
+	}
+	unittest{
+		assert(Version(0,1,0) > Version(0,0,57));
+		assert(Version(0,4,0) == Version(0,4,0));
+		assert(Version(0,40,80) < Version(1,0,0));
+	}
+	
+	Version opBinary(string op: "+")(Version rhs) nothrow @nogc pure @safe
+	in(rhs.major >= 0 && rhs.minor >= 0 && rhs.patch >= 0, "Cannot perform addition with negative version numbers."){
+		if(rhs.major > 0){
+			return Version(major + rhs.major, rhs.minor, rhs.patch);
+		}else if(rhs.minor > 0){
+			return Version(major, minor + rhs.minor, rhs.patch);
+		}else{
+			return Version(major, minor, patch + rhs.patch);
+		}
+	}
+	unittest{
+		assert(Version(0,5,7) + Version(0,1,0) == Version(0,6,0));
+		assert(Version(0,5,7) + Version(0,1,1) == Version(0,6,1));
+		assert(Version(1,5,7) + Version(1,0,0) == Version(2,0,0));
+		assert(Version(1,5,7) + Version(1,3,4) == Version(2,3,4));
 	}
 }
+
+///The highest package version that changes the API from the previous version(s).
+package enum bindBCCommonVersion = Version(0,1,1);
+///The first version where the API was used by other BindBC packages.
+package enum earliestVersion = Version(0,1,0);
