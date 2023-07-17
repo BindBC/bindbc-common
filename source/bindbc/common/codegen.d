@@ -204,11 +204,15 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 				dyn ~= `
 	{
 		alias FnCmp = void function(`~fn.params~`);
-		static foreach(Fn; __traits(getOverloads, here, "` ~ iden ~ `")){
-			static if(is(typeof(&Fn) == FnCmp)){
-				lib.bindSymbol(cast(void**)&` ~ iden ~ `, Fn.mangleof);
-			}
-		}
+		static if(is(FnCmp FnCmpPtr: FnCmpPtr*) && is(FnCmpPtr ArgsCmp == function)){
+			static foreach(Fn; __traits(getOverloads, here, "` ~ iden ~ `")){{
+				static if(is(typeof(Fn) Args == function)){
+					static if(is(Args == ArgsCmp)){
+						lib.bindSymbol(cast(void**)&` ~ ptrIden ~ `, Fn.mangleof);
+					}
+				}else static assert(0);
+			}}
+		}else static assert(0);
 	}`;
 				if(variadic) continue;
 				/*dyn ~= `
