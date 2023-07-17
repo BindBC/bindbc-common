@@ -35,7 +35,7 @@ enum makeFnBindsProto = (string[][] fns, bool isMemberFn=false) nothrow pure @sa
 };
 
 ///This function only exists for internal backwards-compatibility and should not be used by new libraries.
-enum joinFnBindsProto(bool staticBinding) = (string[][] list, string outerScope, string membersWithFns="") nothrow pure @safe{
+enum joinFnBindsProto(bool staticBinding) = (string[][] list, string outerScope="", string membersWithFns="") nothrow pure @safe{
 	string ret = "import bindbc.common.codegen: _bindbc_common_codegen_joinFnBinds = joinFnBinds;\n";
 	ret ~= "mixin(_bindbc_common_codegen_joinFnBinds!" ~ (staticBinding ? "true" : "false") ~ "((){\n";
 	ret ~= "\timport bindbc.common.codegen: FnBind;\n";

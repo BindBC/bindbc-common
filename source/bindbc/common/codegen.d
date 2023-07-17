@@ -203,8 +203,8 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			if(overload || variadic){
 				dyn ~= `
 	{
-		alias FnCmp = void function(`~fn.params~`);
-		static if(is(FnCmp FnCmpPtr: FnCmpPtr*) && is(FnCmpPtr ArgsCmp == function)){
+		alias FnCmp = void(`~fn.params~`);
+		static if(is(FnCmp ArgsCmp == function)){
 			static foreach(Fn; __traits(getOverloads, here, "` ~ iden ~ `")){{
 				static if(is(typeof(Fn) Args == function)){
 					static if(is(Args == ArgsCmp)){
