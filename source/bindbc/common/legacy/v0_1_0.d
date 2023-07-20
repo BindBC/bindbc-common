@@ -46,7 +46,7 @@ enum joinFnBindsProto(bool staticBinding) = (string[][] list, string outerScope=
 	}
 	ret ~= "\t];\n";
 	ret ~= "\treturn ret;\n";
-	ret ~= "}(), `" ~ membersWithFns ~ "`));"; //list[0][1] = isMemberFn
+	ret ~= "}()" ~ (membersWithFns.length ? ", `"~membersWithFns ~ "`" : "") ~ "));"; //list[0][1] = isMemberFn
 	return ret;
 };
 unittest{
@@ -77,5 +77,5 @@ mixin(_bindbc_common_codegen_joinFnBinds!true((){
 		{q{void}, q{notThis2}, q{uint two}, ext: `C++`, memAttr: q{const}},
 	];
 	return ret;
-}(), ``));");
+}()));");
 }

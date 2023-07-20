@@ -67,18 +67,23 @@ struct FnBind{
 	string attr;
 	
 	/**
+	Optional: If populated, `iden` will be private and a public alias with the name `pubIden` will be created.
+	*/
+	string pubIden;
+	
+	/**
 	Optional: Member function attributes.
 	*/
 	string memAttr;
 	
 	/**
 	Optional:
-	Anything to be placed immediately before the public version of the function, like `private`, `deprecated`, etc.
+	Anything to be placed immediately before the public version of the function, like `deprecated`, etc.
 	*/
 	string pfix;
 	
 	/**
-	Optional: A list of identifiers to create aliases to the function.
+	Optional: A list of identifiers to be aliases of the function.
 	*/
 	string[] aliases;
 }
@@ -93,7 +98,7 @@ Params:
 enum makeFnBindFns = (bool staticBinding, Version version_=earliestVersion) nothrow pure @safe{
 	if(version_ >= Version(0,1,1) && version_ < bindBCCommonVersion + Version(0,1,0)){
 		return
-"alias joinFnBinds = bindbc.common.codegen.joinFnBinds!" ~ (staticBinding ? "true" : "false") ~ ");
+"alias joinFnBinds = bindbc.common.codegen.joinFnBinds!" ~ (staticBinding ? "true" : "false") ~ ";
 alias FnBind = bindbc.common.codegen.FnBind;";
 	}else if(version_ == Version(0,1,0)){
 		return
@@ -103,21 +108,29 @@ alias joinFnBinds = joinFnBindsProto!" ~ (staticBinding ? "true" : "false") ~ ";
 	}else assert(0, "Invalid version supplied.");
 };
 
-enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns="") nothrow pure @safe{
+enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null) nothrow pure @safe{
 	string ret;
 	
 	static if(staticBinding){
 		ret ~= "nothrow @nogc{\n";
 		foreach(fn; fns){
+			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ "extern("~fn.ext~") ";
 			if(fn.iden == "this"){
 				if(fn.params.length){
-					ret ~= "\t" ~ fn.pfix ~ " extern("~fn.ext~") this("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
+					ret ~= "\t" ~ pfix ~ "this("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
 				}else{
 					ret ~= "\t\timport bindbc.common.codegen: mangleofCppDefaultCtor;\n";
-					ret ~= "\t" ~ fn.pfix ~ " extern("~fn.ext~") " ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
+					ret ~= "\t" ~ pfix ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
 				}
 			}else{
-				ret ~= "\t" ~ fn.pfix ~ " extern("~fn.ext~") " ~ fn.retn ~ " " ~ fn.iden ~ "("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
+				ret ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
+			}
+			
+			if(fn.pubIden.length){
+				ret ~= "\talias " ~ fn.pubIden ~ " = " ~ fn.iden ~ ";\n";
+			}
+			foreach(alias_; fn.aliases){
+				ret ~= "\talias " ~ alias_ ~ " = " ~ fn.iden ~ ";\n";
 			}
 		}
 		ret ~= "}";
@@ -152,12 +165,14 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			}
 			
 			string ext = "extern("~fn.ext~") ";
-			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ ext; 
+			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ ext; 
 			
 			//Is this a variadic function?
 			bool variadic = fn.params.length > 3 && fn.params[$-3..$] == "...";
+			//Is this a member function?
+			bool memberFn = membersWithFns is null && fn.ext != "C";
 			
-			//`iden` is the identifier for this function, or an internal name if the function identifier is special (e.g. `this`)
+			//`iden` is either the identifier for this function, or an internal name if the function identifier is special (e.g. `this`)
 			string iden = (){
 				switch(fn.iden){
 					case "this": return "__ctor";
@@ -171,7 +186,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			//The function pointer's parameters, and how to call it from the public function.
 			string ptrParams = fn.params;
 			string ptrCall = "__traits(parameters)";
-			if(!membersWithFns.length){
+			if(memberFn){
 				if(fn.params.length){
 					ptrParams = "ref inout(typeof(this)) this_, " ~ ptrParams;
 					ptrCall = "this, " ~ ptrCall;
@@ -251,6 +266,12 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 				ret ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 			}
 			
+			if(fn.pubIden.length){
+				ret ~= "\talias " ~ fn.pubIden ~ " = " ~ iden ~ ";\n";
+			}
+			foreach(alias_; fn.aliases){
+				ret ~= "\talias " ~ alias_ ~ " = " ~ iden ~ ";"; 
+			}
 		}
 		
 		if(membersWithFns.length){
