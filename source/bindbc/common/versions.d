@@ -11,8 +11,10 @@ struct Version{
 	int minor;
 	int patch;
 	
-	//enum none = Version(int.min, 0, 0);
-	//enum bad = Version(-1, 0, 0);
+	///Only for old BindBC libraries
+	enum none = Version(int.min, 0, 0);
+	///ditto
+	enum bad = Version(-1, 0, 0);
 	
 	int opCmp(Version x) nothrow @nogc pure @safe{
 		if(major != x.major){
