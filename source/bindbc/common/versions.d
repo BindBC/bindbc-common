@@ -11,8 +11,8 @@ struct Version{
 	int minor;
 	int patch;
 	
-	enum none = Version(int.min, 0, 0);
-	enum bad = Version(-1, 0, 0);
+	//enum none = Version(int.min, 0, 0);
+	//enum bad = Version(-1, 0, 0);
 	
 	int opCmp(Version x) nothrow @nogc pure @safe{
 		if(major != x.major){
@@ -47,7 +47,5 @@ struct Version{
 	}
 }
 
-///The highest package version that changes the API from the previous version(s).
+///The current package version.
 package enum bindBCCommonVersion = Version(0,1,1);
-///The first version where the API was used by other BindBC packages.
-package enum earliestVersion = Version(0,1,0);

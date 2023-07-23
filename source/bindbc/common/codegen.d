@@ -95,8 +95,8 @@ Params:
 	staticBinding = Whether the functions generate static bindings, or otherwise dynamic ones.
 	version = The version of BindBC-Common that your code is written for.
 */
-enum makeFnBindFns = (bool staticBinding, Version version_=earliestVersion) nothrow pure @safe{
-	if(version_ >= Version(0,1,1) && version_ < bindBCCommonVersion + Version(0,1,0)){
+enum makeFnBindFns = (bool staticBinding, Version version_=Version(0,1,0)) nothrow pure @safe{
+	if(version_ >= Version(0,1,1) && version_ <= bindBCCommonVersion){
 		return
 "alias joinFnBinds = bindbc.common.codegen.joinFnBinds!" ~ (staticBinding ? "true" : "false") ~ ";
 alias FnBind = bindbc.common.codegen.FnBind;";
@@ -197,8 +197,8 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 				ptrParams = (fn.memAttr.length ? fn.memAttr~" " : "") ~ ptrParams;
 			}
 			
-			if(variadic){
-				ret ~= "\tpackage " ~ ext ~ fn.retn ~ " function(" ~ ptrParams ~ ") " ~ iden ~ ";\n";
+			if(variadic && !overload){
+				ret ~= "\t" ~ ext ~ fn.retn ~ " function(" ~ ptrParams ~ ") " ~ iden ~ ";\n";
 			}
 			
 			string ptrIden = "_"~fn.iden;
@@ -209,13 +209,12 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 					//iden ~= "_"~overloadStr;
 					//pfix = "package " ~ pfix;
 				//}
-				if(variadic) assert(0, "Variadic function overloads are not supported.");
 			}
 			
 			ptrCall = ptrIden ~ "("~ptrCall~");";
 			
 			
-			if(overload || variadic){
+			if(overload){
 				dyn ~= `
 	{
 		alias FnCmp = void(`~fn.params~`);
@@ -229,41 +228,38 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			}}
 		}else static assert(0);
 	}`;
-				if(variadic) continue;
-				/*dyn ~= `
-		static foreach(Fn; __traits(getOverloads, here, "`~iden~`")){
-			{
-				void Fn2("~item[3]~"){}
-				static if(is(typeof(Fn) Args1 == __parameters) && is(typeof(Fn2) Args2 == __parameters)){
-					static if(is(Args1 == Args2)){
-						lib.bindSymbol(cast(void**)&"~item[1]~", Fn.mangleof);
-					}
-				}else static assert(0);
-			}
-		}`;*/
+			}else if(variadic){
+				dyn ~= `
+	lib.bindSymbol(cast(void**)&` ~ iden ~ `, here.` ~ iden ~ `.mangleof);`;
+				continue;
 			}else{
 				dyn ~= `
 	lib.bindSymbol(cast(void**)&` ~ ptrIden ~ `, here.` ~ iden ~ `.mangleof);`;
+				
 			}
 			
 			//Private function pointer declaration.
 			ret ~= "\tpackage " ~ ext ~ fn.retn ~ " function(" ~ ptrParams ~ ") " ~ ptrIden ~ ";\n";
 			
+			string fnParams = fn.params;
+			if(variadic && overload){
+				fnParams = "T...)("~fnParams[0..$-3]~"T _variadics";
+			}
 			if(fn.iden == "this"){ //Constructor.
 				if(fn.params.length){
 					//TODO: Check if the parameters are all defaults here :(
-					ret ~= "\t" ~ pfix ~ "this("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+					ret ~= "\t" ~ pfix ~ "this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 				}else if(fn.ext.length >= 3 && fn.ext[0..3] == "C++"){ //Default constructor; must have no parameters.
 					ret ~= "\timport bindbc.common.codegen: mangleofCppDefaultCtor;\n";
 					ret ~= "\t" ~ pfix ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 				}else assert(0, "Default constructor mangling for extern("~fn.ext~") is unknown.");
 			}else if(fn.iden == "~this"){ //Destructor.
-				ret ~= "\t" ~ pfix ~ "~this("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+				ret ~= "\t" ~ pfix ~ "~this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 			}else{
 				if(fn.retn != "void"){
 					ptrCall = "return " ~ ptrCall;
 				}
-				ret ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+				ret ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 			}
 			
 			if(fn.pubIden.length){
