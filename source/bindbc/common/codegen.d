@@ -135,8 +135,8 @@ enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null
 		}
 		ret ~= "}";
 	}else{
-		ret ~= "__gshared nothrow @nogc{\n";
-		
+		string types = "private nothrow @nogc{\n";
+		string ptrs = "__gshared{ nothrow @nogc\n";
 		string dyn =
 `import bindbc.loader: SharedLib, bindSymbol;
 static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
@@ -165,7 +165,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			}
 			
 			string ext = "extern("~fn.ext~") ";
-			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ ext; 
+			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ ext;
 			
 			//Is this a variadic function?
 			bool variadic = fn.params.length > 3 && fn.params[$-3..$] == "...";
@@ -197,22 +197,24 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 				ptrParams = (fn.memAttr.length ? fn.memAttr~" " : "") ~ ptrParams;
 			}
 			
-			if(variadic && !overload){
-				ret ~= "\t" ~ ext ~ fn.retn ~ " function(" ~ ptrParams ~ ") " ~ iden ~ ";\n";
-			}
-			
 			string ptrIden = "_"~fn.iden;
+			string typeIden = "_p"~fn.iden;
+			string typeExt = "extern("~((fn.ext.length > 3 && fn.ext[0..3] == "C++") ? "C++" : fn.ext)~") ";
+			
 			if(overload){
 				string overloadStr = overload.toStrCT();
 				ptrIden ~= overloadStr;
+				typeIden ~= overloadStr;
 				//if(!specialIden){
 					//iden ~= "_"~overloadStr;
 					//pfix = "package " ~ pfix;
 				//}
+			}else if(variadic){
+				types ~= "\talias " ~ typeIden ~ " = " ~ typeExt ~ fn.retn ~ " function(" ~ ptrParams ~ ");\n";
+				ptrs ~= "\t" ~ ext ~ typeIden ~ " " ~ iden ~ ";\n";
 			}
 			
 			ptrCall = ptrIden ~ "("~ptrCall~");";
-			
 			
 			if(overload){
 				dyn ~= `
@@ -229,18 +231,39 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 		}else static assert(0);
 	}`;
 			}else if(variadic){
-				dyn ~= `
+				if((fn.ext.length >= 3 && fn.ext[0..3] == "C++") || fn.ext == "Objective-C"){
+					//Variadic functions always act like they're overloaded and return no mangled parameters. :(
+					dyn ~= `
+	{
+		alias FnCmp = void(`~fn.params~`);
+		static if(is(FnCmp ArgsCmp == function)){
+			static foreach(Fn; __traits(getOverloads, here, "` ~ iden ~ `")){{
+				static if(is(typeof(Fn) Args == function)){
+					static if(is(Args == ArgsCmp)){
+						lib.bindSymbol(cast(void**)&` ~ iden ~ `, Fn.mangleof);
+					}
+				}else static assert(0);
+			}}
+		}else static assert(0);
+	}`;
+				}else{
+					dyn ~= `
 	lib.bindSymbol(cast(void**)&` ~ iden ~ `, here.` ~ iden ~ `.mangleof);`;
+				}
 				continue;
+				
 			}else{
 				dyn ~= `
 	lib.bindSymbol(cast(void**)&` ~ ptrIden ~ `, here.` ~ iden ~ `.mangleof);`;
 				
 			}
 			
+			//We separate the type so that the compiler doesn't extern our function pointer; only makes the function pointer type extern.
+			types ~= "\talias " ~ typeIden ~ " = " ~ typeExt ~ fn.retn ~ " function(" ~ ptrParams ~ ");\n";
 			//Private function pointer declaration.
-			ret ~= "\tpackage " ~ ext ~ fn.retn ~ " function(" ~ ptrParams ~ ") " ~ ptrIden ~ ";\n";
+			ptrs ~= "\tpackage " ~ typeIden ~ " " ~ ptrIden ~ ";\n";
 			
+			//Function wrapper delcaration.
 			string fnParams = fn.params;
 			if(variadic && overload){
 				fnParams = "T...)("~fnParams[0..$-3]~"T _variadics";
@@ -248,25 +271,25 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			if(fn.iden == "this"){ //Constructor.
 				if(fn.params.length){
 					//TODO: Check if the parameters are all defaults here :(
-					ret ~= "\t" ~ pfix ~ "this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+					ptrs ~= "\t" ~ pfix ~ "this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 				}else if(fn.ext.length >= 3 && fn.ext[0..3] == "C++"){ //Default constructor; must have no parameters.
-					ret ~= "\timport bindbc.common.codegen: mangleofCppDefaultCtor;\n";
-					ret ~= "\t" ~ pfix ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+					ptrs ~= "\timport bindbc.common.codegen: mangleofCppDefaultCtor;\n";
+					ptrs ~= "\t" ~ pfix ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 				}else assert(0, "Default constructor mangling for extern("~fn.ext~") is unknown.");
 			}else if(fn.iden == "~this"){ //Destructor.
-				ret ~= "\t" ~ pfix ~ "~this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+				ptrs ~= "\t" ~ pfix ~ "~this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 			}else{
 				if(fn.retn != "void"){
 					ptrCall = "return " ~ ptrCall;
 				}
-				ret ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+				ptrs ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
 			}
 			
 			if(fn.pubIden.length){
-				ret ~= "\talias " ~ fn.pubIden ~ " = " ~ iden ~ ";\n";
+				ptrs ~= "\talias " ~ fn.pubIden ~ " = " ~ iden ~ ";\n";
 			}
 			foreach(alias_; fn.aliases){
-				ret ~= "\talias " ~ alias_ ~ " = " ~ iden ~ ";"; 
+				ptrs ~= "\talias " ~ alias_ ~ " = " ~ iden ~ ";"; 
 			}
 		}
 		
@@ -280,7 +303,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 	}`;
 		}
 		
-		ret ~= "}\n\n" ~ dyn ~ "\n}";
+		ret = types ~ "}\n" ~ ptrs ~ "}\n\n" ~ dyn ~ "\n}";
 	}
 	return ret;
 };
