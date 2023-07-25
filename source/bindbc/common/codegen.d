@@ -136,11 +136,11 @@ enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null
 		ret ~= "}";
 	}else{
 		string types = "private nothrow @nogc{\n";
-		string ptrs = "__gshared{ nothrow @nogc\n";
+		string ptrs = "__gshared nothrow @nogc{\n";
 		string dyn =
 `import bindbc.loader: SharedLib, bindSymbol;
 static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
-	alias here = ` ~ makeOuterScope() ~ `; import std.stdio; debug writeln(here.stringof);`;
+	alias here = ` ~ makeOuterScope() ~ `;`;
 		
 		//Helps us see if functions have overloads.
 		uint[string] usedIdens;
