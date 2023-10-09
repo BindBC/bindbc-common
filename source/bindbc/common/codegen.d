@@ -108,6 +108,12 @@ alias joinFnBinds = joinFnBindsProto!" ~ (staticBinding ? "true" : "false") ~ ";
 	}else assert(0, "Invalid version supplied.");
 };
 
+/*
+Regex sub:
+^[ \t]*([A-Za-z0-9_()*\[\]]+) (\w+) ?\(([A-Za-z0-9_()*, .=\[\]]*)\);
+with:
+\t\t{q{$1}, q{$2}, q{$3}},
+*/
 enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null) nothrow pure @safe{
 	string ret;
 	
