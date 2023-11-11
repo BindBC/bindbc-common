@@ -36,7 +36,7 @@ struct FnBind{
 	Use `this` when binding a constructor, `~this` when binding a destructor.
 	Must be non-null.
 	*/
-	string iden; 
+	string iden;
 	
 	/**
 	Comma-separated named function parameters.
