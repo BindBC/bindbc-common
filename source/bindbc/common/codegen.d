@@ -203,8 +203,8 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 				ptrParams = (fn.memAttr.length ? fn.memAttr~" " : "") ~ ptrParams;
 			}
 			
-			string ptrIden = "_"~fn.iden;
-			string typeIden = "_p"~fn.iden;
+			string ptrIden = "_"~iden;
+			string typeIden = "_p"~iden;
 			string typeExt = "extern("~((fn.ext.length > 3 && fn.ext[0..3] == "C++") ? "C++" : fn.ext)~") ";
 			
 			if(overload){
