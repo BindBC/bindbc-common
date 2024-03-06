@@ -17,9 +17,9 @@ Example:
 ```d
 FnBbind one = {q{void}, q{someCppFn}, q{int si, uint ui}, ext: `C++`}; //OK
 FnBbind two = {q{void}, q{someCppFn}, q{uint ui, int si}, `C++`}; //`ext` was not specified by identifier; might break in the future!
+```
 
 Never place whitespace around strings provided to FnBind, as it may cause incorrect binding generation.
-```
 */
 struct FnBind{
 	/**
@@ -41,7 +41,6 @@ struct FnBind{
 	/**
 	Comma-separated named function parameters.
 	Constructors can have no parameters. Constructors with all-default parameters will not currently work!
-	
 	
 	Default: no parameters
 	*/
