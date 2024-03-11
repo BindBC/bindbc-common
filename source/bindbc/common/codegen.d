@@ -216,7 +216,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 				//}
 			}else if(variadic){
 				types ~= "\talias " ~ typeIden ~ " = " ~ typeExt ~ fn.retn ~ " function(" ~ ptrParams ~ ");\n";
-				ptrs ~= "\t" ~ ext ~ typeIden ~ " " ~ iden ~ ";\n";
+				ptrs ~= "\t" ~ typeIden ~ " " ~ iden ~ ";\n";
 			}
 			
 			ptrCall = ptrIden ~ "("~ptrCall~");";
