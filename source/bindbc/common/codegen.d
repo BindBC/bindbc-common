@@ -253,7 +253,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 	}`;
 				}else{
 					dyn ~= `
-	lib.bindSymbol(cast(void**)&` ~ iden ~ `, here.` ~ iden ~ `.mangleof);`;
+	lib.bindSymbol(cast(void**)&` ~ iden ~ `, "` ~ iden ~ `");`;
 				}
 				continue;
 				
