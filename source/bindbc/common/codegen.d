@@ -94,16 +94,11 @@ Params:
 	staticBinding = Whether the functions generate static bindings, or otherwise dynamic ones.
 	version = The version of BindBC-Common that your code is written for.
 */
-enum makeFnBindFns = (bool staticBinding, Version version_=Version(0,1,0)) nothrow pure @safe{
+enum makeFnBindFns = (bool staticBinding, Version version_=Version(0,1,1)) nothrow pure @safe{
 	if(version_ >= Version(0,1,1) && version_ <= bindBCCommonVersion){
 		return
 "alias joinFnBinds = bindbc.common.codegen.joinFnBinds!" ~ (staticBinding ? "true" : "false") ~ ";
 alias FnBind = bindbc.common.codegen.FnBind;";
-	}else if(version_ == Version(0,1,0)){
-		return
-"import bindbc.common.legacy.v0_1_0: makeFnBindsProto, joinFnBindsProto;
-alias makeFnBinds = makeFnBindsProto;
-alias joinFnBinds = joinFnBindsProto!" ~ (staticBinding ? "true" : "false") ~ ";";
 	}else assert(0, "Invalid version supplied.");
 };
 
@@ -293,8 +288,8 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			if(fn.pubIden.length){
 				ptrs ~= "\talias " ~ fn.pubIden ~ " = " ~ iden ~ ";\n";
 			}
-			foreach(alias_; fn.aliases){
-				ptrs ~= "\talias " ~ alias_ ~ " = " ~ iden ~ ";"; 
+			foreach(aliasIden; fn.aliases){
+				ptrs ~= "\talias " ~ aliasIden ~ " = " ~ iden ~ ";"; 
 			}
 		}
 		
@@ -478,6 +473,113 @@ unittest{
 	static assert(9_396_460_865_079_328.toStrCT() == "9396460865079328");
 	static assert(1_046_259_925_731_862_221.toStrCT() == "1046259925731862221");
 }
+
+/**
+Data for a member of an enum binding.
+
+Only the locations of the first 2 fields (`iden`, and `val`) should be
+relied on. Every other field should always be written/read by using its identifier.
+*/
+struct EnumMember{
+	EnumIden iden;
+	
+	/**
+	Optional: The value of both versions of the enum member.
+	*/
+	string val;
+	
+	/**
+	Optional: A list of identifiers to be aliases of the member.
+	*/
+	EnumIden[] aliases;
+}
+
+struct EnumIden{
+	/**
+	The identifier for a D-style version of this enum member.
+	For example: `mouseButtonDown` for an enum named `SDLEvent`
+	Must be non-null.
+	*/
+	string d;
+	
+	/**
+	The identifier for a C-style version of this enum member.
+	For example: `SDL_EVENT_MOUSE_BUTTON_DOWN`
+	Must be non-null.
+	*/
+	string c;
+}
+
+/**
+Returns: A mixin string with code for creating enum bindings.
+
+Params:
+	cStyle = Whether or not to generate C-style 
+	version = The version of BindBC-Common that your code is written for.
+*/
+enum makeEnumBindFns = (bool cStyle, bool dStyle) nothrow pure @safe{
+	return
+"alias makeEnumBind = bindbc.common.codegen.makeEnumBind!(" ~
+	(cStyle ? "true" : "false") ~ ", " ~
+	(dStyle ? "true" : "false") ~
+");
+alias EnumMember = bindbc.common.codegen.EnumMember;
+alias EnumIden = bindbc.common.codegen.EnumIden;";
+};
+
+/**
+Create an enum with optional D-style and C-style versions.
+
+Only the first two parameters (`dIden`, and `baseType`) should be
+supplied sequentially. The rest should be called using named parameters.
+
+Params:
+	dIden = An identifer for the D-style version of this enum. (i.e. `enum TypeIdentifier{`)
+	baseType = (Optional) A base type for both versions of the enum. (i.e. `enum MyEnum: BaseType{`)
+	aliases = (Optional) Aliases to the D-style version of this enum.
+	members = Each member of the enum.
+*/
+enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=null, string[] aliases=null, EnumMember[] members) nothrow pure @safe{
+	string dRet;
+	static if(!dStyle)
+		dRet ~= "package ";
+	dRet ~= "enum " ~ dIden;
+	if(baseType)
+		dRet ~= ": " ~ baseType;
+	dRet ~= "{\n";
+	
+	string cRet;
+	static if(cStyle){
+		cRet ~= "enum: " ~ dIden ~ "{\n";
+	}
+	
+	foreach(member; members){
+		dRet ~= "\t" ~ member.iden.d;
+		if(member.val)
+			dRet ~= " = " ~ member.val;
+		dRet ~= ",\n";
+		
+		static if(cStyle){
+			cRet ~= "\t" ~ member.iden.c ~ " = " ~ dIden~"."~member.iden.d;
+			cRet ~= ",\n";
+		}
+		
+		foreach(aliasIden; member.aliases){
+			dRet ~= "\t" ~ aliasIden.d ~ " = " ~ member.iden.d ~ ",\n";
+			
+			static if(cStyle){
+				cRet ~= "\t" ~ aliasIden.c ~ " = " ~ member.iden.c ~ ",\n";
+			}
+		}
+	}
+	
+	dRet ~= "}\n";
+	foreach(dAlias; aliases){
+		dRet ~= "alias "~dAlias~" = "~dIden~";\n";
+	}
+	
+	return dRet ~ cRet ~ "}";
+};
 
 /**
 A workaround that BindBC used to use for C-style enums.

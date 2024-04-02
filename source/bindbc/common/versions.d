@@ -11,9 +11,7 @@ struct Version{
 	int minor;
 	int patch;
 	
-	///Only for old BindBC libraries
 	enum none = Version(int.min, 0, 0);
-	///ditto
 	enum bad = Version(-1, 0, 0);
 	
 	int opCmp(Version x) nothrow @nogc pure @safe{
@@ -47,7 +45,11 @@ struct Version{
 		assert(Version(1,5,7) + Version(1,0,0) == Version(2,0,0));
 		assert(Version(1,5,7) + Version(1,3,4) == Version(2,3,4));
 	}
+	
+	bool opCast(T: bool)() nothrow @nogc pure @safe{
+		return this != none && this != bad;
+	}
 }
 
 ///The current package version.
-package enum bindBCCommonVersion = Version(0,1,1);
+package enum bindBCCommonVersion = Version(1,0,0);
