@@ -498,14 +498,14 @@ struct EnumIden{
 	/**
 	The identifier for a D-style version of this enum member.
 	For example: `mouseButtonDown` for an enum named `SDLEvent`
-	Must be non-null.
+	Must be non-null, except in `aliases`.
 	*/
 	string d;
 	
 	/**
 	The identifier for a C-style version of this enum member.
 	For example: `SDL_EVENT_MOUSE_BUTTON_DOWN`
-	Must be non-null.
+	Must be non-null, except in `aliases`.
 	*/
 	string c;
 }
@@ -565,10 +565,12 @@ enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=nul
 		}
 		
 		foreach(aliasIden; member.aliases){
-			dRet ~= "\t" ~ aliasIden.d ~ " = " ~ member.iden.d ~ ",\n";
+			if(aliasIden.d)
+				dRet ~= "\t" ~ aliasIden.d ~ " = " ~ member.iden.d ~ ",\n";
 			
 			static if(cStyle){
-				cRet ~= "\t" ~ aliasIden.c ~ " = " ~ member.iden.c ~ ",\n";
+				if(aliasIden.c)
+					cRet ~= "\t" ~ aliasIden.c ~ " = " ~ member.iden.c ~ ",\n";
 			}
 		}
 	}
