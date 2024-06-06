@@ -61,7 +61,7 @@ struct FnBind{
 	string ext = `C`;
 	
 	/**
-	Optional: Function attributes.
+	Optional: Function attributes. (Unused)
 	*/
 	string attr;
 	
