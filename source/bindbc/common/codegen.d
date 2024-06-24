@@ -594,6 +594,8 @@ enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=nul
 	
 	dRet ~= "}\n";
 	foreach(dAlias; aliases){
+		static if(!dStyle)
+			dRet ~= "package ";
 		dRet ~= "alias "~dAlias~" = "~dIden~";\n";
 	}
 	
