@@ -61,12 +61,12 @@ struct FnBind{
 	string ext = `C`;
 	
 	/**
-	Optional: Function attributes. (Unused)
+	Optional: Function attributes. `pure` will be removed from dynamic bindings.
 	*/
 	string attr;
 	
 	/**
-	Optional: If populated, `iden` will be private and a public alias with the name `pubIden` will be created.
+	Optional: If populated, `iden` will be private, and a public alias with the name `pubIden` will be created.
 	*/
 	string pubIden;
 	
@@ -115,15 +115,18 @@ enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null
 		ret ~= "nothrow @nogc{\n";
 		foreach(fn; fns){
 			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ "extern("~fn.ext~") ";
+			string attr = (fn.attr.length ? " "~fn.attr : "");
+			string memAttr = (fn.memAttr.length ? " "~fn.memAttr : "");
+			
 			if(fn.iden == "this"){
 				if(fn.params.length){
-					ret ~= "\t" ~ pfix ~ "this("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
+					ret ~= "\t" ~ pfix ~ "this("~fn.params~")" ~ memAttr ~ attr ~ ";\n";
 				}else{
 					ret ~= "\t\timport bindbc.common.codegen: mangleofCppDefaultCtor;\n";
 					ret ~= "\t" ~ pfix ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
 				}
 			}else{
-				ret ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fn.params~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ ";\n";
+				ret ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fn.params~")" ~ memAttr ~ attr ~ ";\n";
 			}
 			
 			if(fn.pubIden.length){
@@ -166,6 +169,19 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			
 			string ext = "extern("~fn.ext~") ";
 			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ ext;
+			
+			string memAttr = (fn.memAttr.length ? " "~fn.memAttr : "");
+			string attr = (fn.attr.length ? " "~fn.attr : "");
+			//remove `pure` for function wrapper
+			string wrapAttr = attr;
+			if(fn.attr.length >= 4){
+				foreach(ind; 0..fn.attr.length-3){
+					if(fn.attr[ind..ind+4] == q{pure}){
+						wrapAttr = " "~fn.attr[0..ind] ~ fn.attr[ind+4..$];
+						break;
+					}
+				}
+			}
 			
 			//Is this a variadic function?
 			bool variadic = fn.params.length > 3 && fn.params[$-3..$] == "...";
@@ -210,7 +226,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 					//pfix = "package " ~ pfix;
 				//}
 			}else if(variadic){
-				types ~= "\talias " ~ typeIden ~ " = " ~ typeExt ~ fn.retn ~ " function(" ~ ptrParams ~ ");\n";
+				types ~= "\talias " ~ typeIden ~ " = " ~ typeExt ~ fn.retn ~ " function(" ~ ptrParams ~ ")" ~ attr ~ ";\n";
 				ptrs ~= "\t" ~ typeIden ~ " " ~ iden ~ ";\n";
 			}
 			
@@ -259,7 +275,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			}
 			
 			//We separate the type so that the compiler doesn't extern our function pointer; only makes the function pointer type extern.
-			types ~= "\talias " ~ typeIden ~ " = " ~ typeExt ~ fn.retn ~ " function(" ~ ptrParams ~ ");\n";
+			types ~= "\talias " ~ typeIden ~ " = " ~ typeExt ~ fn.retn ~ " function(" ~ ptrParams ~ ")" ~ attr ~ ";\n";
 			//Private function pointer declaration.
 			ptrs ~= "\tpackage " ~ typeIden ~ " " ~ ptrIden ~ ";\n";
 			
@@ -271,18 +287,18 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			if(fn.iden == "this"){ //Constructor.
 				if(fn.params.length){
 					//TODO: Check if the parameters are all defaults here :(
-					ptrs ~= "\t" ~ pfix ~ "this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+					ptrs ~= "\t" ~ pfix ~ "this("~fnParams~")" ~ memAttr ~ wrapAttr ~ "{ " ~ ptrCall ~ " }\n";
 				}else if(fn.ext.length >= 3 && fn.ext[0..3] == "C++"){ //Default constructor; must have no parameters.
 					ptrs ~= "\timport bindbc.common.codegen: mangleofCppDefaultCtor;\n";
-					ptrs ~= "\t" ~ pfix ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+					ptrs ~= "\t" ~ pfix ~ "pragma(mangle, [__traits(getCppNamespaces, typeof(this)), __traits(identifier, typeof(this))].mangleofCppDefaultCtor()) this(int _)" ~ memAttr ~ attr ~ "{ " ~ ptrCall ~ " }\n";
 				}else assert(0, "Default constructor mangling for extern("~fn.ext~") is unknown.");
 			}else if(fn.iden == "~this"){ //Destructor.
-				ptrs ~= "\t" ~ pfix ~ "~this("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+				ptrs ~= "\t" ~ pfix ~ "~this("~fnParams~")" ~ memAttr ~ wrapAttr ~ "{ " ~ ptrCall ~ " }\n";
 			}else{
 				if(fn.retn != "void"){
 					ptrCall = "return " ~ ptrCall;
 				}
-				ptrs ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fnParams~")" ~ (fn.memAttr.length ? " "~fn.memAttr : "") ~ "{ " ~ ptrCall ~ " }\n";
+				ptrs ~= "\t" ~ pfix ~ fn.retn ~ " " ~ fn.iden ~ "("~fnParams~")" ~ memAttr ~ wrapAttr ~ "{ " ~ ptrCall ~ " }\n";
 			}
 			
 			if(fn.pubIden.length){

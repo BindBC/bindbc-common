@@ -9,5 +9,5 @@ module bindbc.common;
 public import
 	bindbc.common.codegen,
 	bindbc.common.types,
-	bindbc.commmon.value_class,
+	bindbc.common.value_class,
 	bindbc.common.versions;
