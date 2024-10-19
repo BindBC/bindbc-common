@@ -8,6 +8,8 @@ module bindbc.common.codegen;
 
 import bindbc.common.versions;
 
+///TODO: split into codegen.fn, codegen.enum_, and codegen.util
+
 /**
 Data for function bindings.
 
@@ -142,7 +144,7 @@ enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null
 		string ptrs = "__gshared nothrow @nogc{\n";
 		string dyn =
 `import bindbc.loader: SharedLib, bindSymbol;
-static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
+void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 	alias here = ` ~ makeOuterScope() ~ `;`;
 		
 		//Helps us see if functions have overloads.
