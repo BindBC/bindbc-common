@@ -579,8 +579,10 @@ enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=nul
 		dRet ~= ",\n";
 		
 		static if(cStyle){
-			cRet ~= "\t" ~ member.iden.c ~ " = " ~ dIden~"."~member.iden.d;
-			cRet ~= ",\n";
+			if(member.iden.c){
+				cRet ~= "\t" ~ member.iden.c ~ " = " ~ dIden~"."~member.iden.d;
+				cRet ~= ",\n";
+			}
 		}
 		
 		foreach(aliasIden; member.aliases){
