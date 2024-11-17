@@ -144,7 +144,7 @@ enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null
 		string ptrs = "__gshared nothrow @nogc{\n";
 		string dyn =
 `import bindbc.loader: SharedLib, bindSymbol;
-void bindModuleSymbols(SharedLib lib) nothrow @nogc{
+static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 	alias here = ` ~ makeOuterScope() ~ `;`;
 		
 		//Helps us see if functions have overloads.
@@ -317,7 +317,7 @@ void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 	alias AliasSeq(T...) = T;
 	static foreach(item; AliasSeq!(` ~ membersWithFns ~ `)){ 
 		static assert((is(item == struct) || is(item == class)) && (__traits(getLinkage, item) == "C++" || __traits(getLinkage, item) == "Objective-C") && __traits(hasMember, item, "bindModuleSymbols"));
-		mixin(item,".bindModuleSymbols(lib);");
+		mixin(__traits(fullyQualifiedName, item),".bindModuleSymbols(lib);");
 	}`;
 		}
 		
