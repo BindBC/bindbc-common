@@ -63,6 +63,11 @@ struct FnBind{
 	string ext = `C`;
 	
 	/**
+	Whether or not a member function is static. Should not be `true` for non-member functions.
+	*/
+	bool isStatic = false;
+	
+	/**
 	Optional: Function attributes. `pure` will be removed from dynamic bindings.
 	*/
 	string attr;
@@ -117,6 +122,9 @@ enum joinFnBinds(bool staticBinding) = (FnBind[] fns, string membersWithFns=null
 		ret ~= "nothrow @nogc{\n";
 		foreach(fn; fns){
 			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ "extern("~fn.ext~") ";
+			if(fn.isStatic){
+				pfix ~= "static ";
+			}
 			string attr = (fn.attr.length ? " "~fn.attr : "");
 			string memAttr = (fn.memAttr.length ? " "~fn.memAttr : "");
 			
@@ -171,6 +179,9 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			
 			string ext = "extern("~fn.ext~") ";
 			string pfix = (fn.pfix.length ? fn.pfix~" " : "") ~ (fn.pubIden.length ? "package " : "") ~ ext;
+			if(fn.isStatic){
+				pfix ~= "static ";
+			}
 			
 			string memAttr = (fn.memAttr.length ? " "~fn.memAttr : "");
 			string attr = (fn.attr.length ? " "~fn.attr : "");
@@ -204,7 +215,7 @@ static void bindModuleSymbols(SharedLib lib) nothrow @nogc{
 			//The function pointer's parameters, and how to call it from the public function.
 			string ptrParams = fn.params;
 			string ptrCall = "__traits(parameters)";
-			if(memberFn){
+			if(memberFn && !fn.isStatic){
 				if(fn.params.length){
 					ptrParams = "ref inout(typeof(this)) this_, " ~ ptrParams;
 					ptrCall = "this, " ~ ptrCall;
