@@ -421,6 +421,7 @@ enum mangleofCppDefaultCtor = (string[] syms) nothrow pure @safe{
 		version(CppRuntime_Clang)    return true;
 		else version(CppRuntime_Gcc) return true;
 		else version(Android)        return true;
+		else version(WebAssembly)    return true;
 		else return false;
 	}()){
 		string ret = "_ZN";
