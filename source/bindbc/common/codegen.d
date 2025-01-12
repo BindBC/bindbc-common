@@ -570,7 +570,7 @@ Params:
 	aliases = (Optional) Aliases to the D-style version of this enum.
 	members = Each member of the enum.
 */
-enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=null, string[] aliases=null, EnumMember[] members) nothrow pure @safe{
+enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=null, string[] aliases=null, EnumMember[] members, string fullModule=__MODULE__) nothrow pure @safe{
 	string dRet;
 	static if(!dStyle)
 		dRet ~= "package ";
@@ -581,7 +581,7 @@ enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=nul
 	
 	string cRet;
 	static if(cStyle){
-		cRet ~= "enum: " ~ dIden ~ "{\n";
+		cRet ~= "enum: " ~ fullModule~"."~dIden ~ "{\n";
 	}
 	
 	foreach(member; members){
@@ -592,18 +592,18 @@ enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=nul
 		
 		static if(cStyle){
 			if(member.iden.c){
-				cRet ~= "\t" ~ member.iden.c ~ " = " ~ dIden~"."~member.iden.d;
+				cRet ~= "\t" ~ member.iden.c ~ " = " ~ fullModule~"."~dIden~"."~member.iden.d;
 				cRet ~= ",\n";
 			}
 		}
 		
 		foreach(aliasIden; member.aliases){
 			if(aliasIden.d)
-				dRet ~= "\t" ~ aliasIden.d ~ " = " ~ member.iden.d ~ ",\n";
+				dRet ~= "\t" ~ aliasIden.d ~ " = " ~ fullModule~"."~member.iden.d ~ ",\n";
 			
 			static if(cStyle){
 				if(aliasIden.c)
-					cRet ~= "\t" ~ aliasIden.c ~ " = " ~ member.iden.c ~ ",\n";
+					cRet ~= "\t" ~ aliasIden.c ~ " = " ~ fullModule~"."~member.iden.c ~ ",\n";
 			}
 		}
 	}
@@ -612,7 +612,7 @@ enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=nul
 	foreach(dAlias; aliases){
 		static if(!dStyle)
 			dRet ~= "package ";
-		dRet ~= "alias "~dAlias~" = "~dIden~";\n";
+		dRet ~= "alias "~dAlias~" = "~fullModule~"."~dIden~";\n";
 	}
 	
 	return dRet ~ cRet ~ "}";
