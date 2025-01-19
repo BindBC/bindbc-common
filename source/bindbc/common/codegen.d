@@ -599,11 +599,11 @@ enum makeEnumBind(bool cStyle, bool dStyle) = (string dIden, string baseType=nul
 		
 		foreach(aliasIden; member.aliases){
 			if(aliasIden.d)
-				dRet ~= "\t" ~ aliasIden.d ~ " = " ~ fullModule~"."~member.iden.d ~ ",\n";
+				dRet ~= "\t" ~ aliasIden.d ~ " = " ~ member.iden.d ~ ",\n";
 			
 			static if(cStyle){
 				if(aliasIden.c)
-					cRet ~= "\t" ~ aliasIden.c ~ " = " ~ fullModule~"."~member.iden.c ~ ",\n";
+					cRet ~= "\t" ~ aliasIden.c ~ " = " ~ member.iden.c ~ ",\n";
 			}
 		}
 	}
